@@ -10,7 +10,12 @@
 #   ./scripts/update-formula.sh                  # latest release
 #   ./scripts/update-formula.sh v1.0.4-beta      # specific tag
 #
-# Requirements: curl, shasum (macOS) or sha256sum (Linux), sed, gh (optional)
+# Portability: must run on both macOS (default bash 3.2, no associative
+# arrays) and Linux CI (GNU coreutils). We therefore avoid `declare -A`
+# entirely and do all in-file edits in Python — never `sed -i`, whose
+# in-place syntax differs incompatibly between BSD (`-i ''`) and GNU (`-i`).
+#
+# Requirements: curl, shasum (macOS) or sha256sum (Linux), python3
 #
 set -euo pipefail
 
@@ -37,69 +42,79 @@ echo "Updating formula for $VERSION..."
 # ── 2. Download and hash each asset ───────────────────────────────────────
 BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
 
-declare -A ASSETS=(
-  ["macos-arm64"]="mootx01-${VERSION}-macos-arm64.tar.gz"
-  ["macos-x86_64"]="mootx01-${VERSION}-macos-x86_64.tar.gz"
-  ["linux-x86_64"]="mootx01-${VERSION}-linux-x86_64.tar.gz"
-  ["linux-arm64"]="mootx01-${VERSION}-linux-arm64.tar.gz"
-)
-
-declare -A SHA256S
-
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-for KEY in "${!ASSETS[@]}"; do
-  ASSET="${ASSETS[$KEY]}"
-  URL="$BASE_URL/$ASSET"
-  echo "  Downloading $ASSET..."
-  curl -fsSL "$URL" -o "$TMP/$ASSET" || {
-    echo "  ✗ Could not download $URL — skipping $KEY"
-    SHA256S[$KEY]="0000000000000000000000000000000000000000000000000000000000000000"
-    continue
-  }
-  if command -v shasum &>/dev/null; then
-    SHA256S[$KEY]="$(shasum -a 256 "$TMP/$ASSET" | awk '{print $1}')"
-  else
-    SHA256S[$KEY]="$(sha256sum "$TMP/$ASSET" | awk '{print $1}')"
+# Download the named asset and print its SHA-256 on stdout. Progress goes to
+# stderr so command substitution captures only the hash. A missing asset
+# yields the 64-zero placeholder, which Homebrew rejects at install — a
+# broken download must fail loud, never silently ship a stale/wrong hash.
+hash_asset() {
+  local asset="$1"
+  local url="$BASE_URL/$asset"
+  echo "  Downloading $asset..." >&2
+  if ! curl -fsSL "$url" -o "$TMP/$asset"; then
+    echo "  ✗ Could not download $url" >&2
+    echo "0000000000000000000000000000000000000000000000000000000000000000"
+    return
   fi
-  echo "  ✓ ${KEY}: ${SHA256S[$KEY]}"
-done
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$TMP/$asset" | awk '{print $1}'
+  else
+    sha256sum "$TMP/$asset" | awk '{print $1}'
+  fi
+}
+
+# Four ordered variables (no associative arrays, for bash 3.2). The order
+# here MUST match the order the sha256 lines appear in the formula: macOS
+# arm, macOS intel, Linux intel, Linux arm (see the Python step below).
+SHA_MACOS_ARM64="$(hash_asset "mootx01-${VERSION}-macos-arm64.tar.gz")"
+echo "  ✓ macos-arm64:  $SHA_MACOS_ARM64"
+SHA_MACOS_X86_64="$(hash_asset "mootx01-${VERSION}-macos-x86_64.tar.gz")"
+echo "  ✓ macos-x86_64: $SHA_MACOS_X86_64"
+SHA_LINUX_X86_64="$(hash_asset "mootx01-${VERSION}-linux-x86_64.tar.gz")"
+echo "  ✓ linux-x86_64: $SHA_LINUX_X86_64"
+SHA_LINUX_ARM64="$(hash_asset "mootx01-${VERSION}-linux-arm64.tar.gz")"
+echo "  ✓ linux-arm64:  $SHA_LINUX_ARM64"
 
 # ── 3. Write the updated formula ──────────────────────────────────────────
-# Strategy: rewrite the formula from scratch using the current file as the
-# template but with version and sha256 values replaced inline.
-# sed -i handles both macOS (BSD) and Linux (GNU) via the empty-string form.
-
-# Version
-sed -i '' "s/^  version \".*\"/  version \"${VERSION_BARE}\"/" "$FORMULA_PATH"
-
-# SHA256s — each is the only sha256 on its respective on_arm/on_intel block.
-# We replace occurrences in order: arm (first on_arm = macOS arm), intel
-# (first on_intel = macOS intel), then linux intel, then linux arm.
-# Use a Python one-liner for reliable nth-occurrence replacement.
+# All in-file edits happen here in Python: the version field plus the four
+# sha256 lines, replaced in document order. Python is already required and
+# is byte-identical across macOS and Linux, so there is no BSD-vs-GNU sed
+# hazard.
 python3 - "$FORMULA_PATH" \
-  "${SHA256S[macos-arm64]}" \
-  "${SHA256S[macos-x86_64]}" \
-  "${SHA256S[linux-x86_64]}" \
-  "${SHA256S[linux-arm64]}" \
+  "$VERSION_BARE" \
+  "$SHA_MACOS_ARM64" \
+  "$SHA_MACOS_X86_64" \
+  "$SHA_LINUX_X86_64" \
+  "$SHA_LINUX_ARM64" \
   <<'PYEOF'
 import sys, re
 
-path, arm_mac, intel_mac, intel_linux, arm_linux = sys.argv[1:]
+path, version, arm_mac, intel_mac, intel_linux, arm_linux = sys.argv[1:]
 targets = [arm_mac, intel_mac, intel_linux, arm_linux]
 
 with open(path) as f:
     text = f.read()
 
+# version "X.Y.Z" — the single 2-space-indented version line.
+text, n = re.subn(r'^  version ".*"', '  version "' + version + '"',
+                  text, count=1, flags=re.M)
+if n != 1:
+    sys.exit("expected exactly one version line, replaced %d" % n)
+
+# The four sha256 lines, in document order (macOS arm, macOS intel,
+# Linux intel, Linux arm).
 idx = 0
 def replacer(m):
     global idx
-    replacement = '      sha256 "' + targets[idx] + '"'
+    out = '      sha256 "' + targets[idx] + '"'
     idx += 1
-    return replacement
+    return out
 
-text = re.sub(r'      sha256 "[0-9a-f]+"', replacer, text)
+text, n = re.subn(r'      sha256 "[0-9a-f]+"', replacer, text)
+if n != 4:
+    sys.exit("expected exactly four sha256 lines, replaced %d" % n)
 
 with open(path, 'w') as f:
     f.write(text)
@@ -109,8 +124,6 @@ echo ""
 echo "Formula updated: $FORMULA"
 echo ""
 echo "Next steps:"
-echo "  cd $(dirname "$FORMULA_PATH")"
 echo "  git add $FORMULA"
 echo "  git commit -m \"formula: update to $VERSION\""
-echo "  git tag $VERSION"
-echo "  git push origin main --tags"
+echo "  git push origin main"
