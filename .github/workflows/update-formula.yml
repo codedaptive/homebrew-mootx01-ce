@@ -1,0 +1,80 @@
+# Keep Formula/mootx01.rb in step with the latest published MOOTx01 CE release.
+#
+# This lives in the tap repo (not the CE release workflow) on purpose:
+#   * It pushes the formula bump back to THIS repo, so the built-in
+#     GITHUB_TOKEN with `contents: write` is enough — no cross-repo PAT.
+#   * CE's release.yml stays untouched (it is kept byte-mirrored with EE,
+#     which has no Homebrew tap).
+#
+# Triggers:
+#   * workflow_dispatch — run it by hand right after a release, optionally
+#     pinning an explicit tag. This is the immediate path.
+#   * schedule — a daily safety net that picks up any release the manual
+#     path missed. It resolves the latest PUBLISHED CE release; draft
+#     releases are invisible to the default token, so it never bumps to one.
+#
+# The heavy lifting (download assets, hash, rewrite the four sha256 lines
+# and the version) is in scripts/update-formula.sh — the same script a
+# human runs locally. CI and local use one code path.
+
+name: Update Homebrew formula
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "CE release tag to pin (e.g. v1.0.5-beta). Blank = latest published."
+        required: false
+        default: ""
+  schedule:
+    # Daily at 06:17 UTC. Off the hour to avoid the top-of-hour runner crush.
+    - cron: "17 6 * * *"
+
+# Least privilege: the only write this job needs is pushing the formula.
+permissions:
+  contents: write
+
+# Never let two bumps race on the same branch.
+concurrency:
+  group: update-formula
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Resolve target tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            # Latest PUBLISHED release of the CE repo (drafts excluded by the
+            # default token's visibility).
+            TAG="$(gh release view --repo codedaptive/mootx01-ce \
+                     --json tagName --jq .tagName)"
+          fi
+          echo "Target tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula
+        # ubuntu-latest ships bash 5, python3, curl, and sha256sum — the
+        # script auto-selects sha256sum when shasum is absent.
+        run: ./scripts/update-formula.sh "${{ steps.tag.outputs.tag }}"
+
+      - name: Commit and push if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- Formula/mootx01.rb; then
+            echo "Formula already at ${{ steps.tag.outputs.tag }} — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/mootx01.rb
+          git commit -m "formula: update to ${{ steps.tag.outputs.tag }} (automated)"
+          git push
