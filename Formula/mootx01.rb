@@ -76,6 +76,9 @@ class Mootx01 < Formula
   test do
     # Smoke-test: the binary must respond to --version without error.
     # Full MCP serve requires a running estate; skip in sandbox.
-    assert_match version.to_s, shell_output("#{bin}/mootx01 --version")
+    # The binary reports the bare semantic version ("1.0.5") — the
+    # pre-release qualifier ("-beta") lives only in the tag/formula, so
+    # match the semver stem, not version.to_s.
+    assert_match version.to_s.sub(/-.*$/, ""), shell_output("#{bin}/mootx01 --version")
   end
 end
