@@ -6,12 +6,16 @@
 #   * CE's release.yml stays untouched (it is kept byte-mirrored with EE,
 #     which has no Homebrew tap).
 #
-# Triggers:
+# Triggers (belt and suspenders):
+#   * repository_dispatch — CE's release.yml fires this immediately after
+#     publishing a release. The `client_payload.tag` carries the exact tag.
+#     This is the fast path: the tap updates within minutes of a CE release.
 #   * workflow_dispatch — run it by hand right after a release, optionally
-#     pinning an explicit tag. This is the immediate path.
-#   * schedule — a daily safety net that picks up any release the manual
-#     path missed. It resolves the latest PUBLISHED CE release; draft
-#     releases are invisible to the default token, so it never bumps to one.
+#     pinning an explicit tag.
+#   * schedule — a daily safety net that picks up any release the dispatch
+#     missed (network glitch, secret rotation, etc.). It resolves the latest
+#     PUBLISHED CE release; draft releases are invisible to the default
+#     token, so it never bumps to one.
 #
 # The heavy lifting (download assets, hash, rewrite the four sha256 lines
 # and the version) is in scripts/update-formula.sh — the same script a
@@ -20,6 +24,8 @@
 name: Update Homebrew formula
 
 on:
+  repository_dispatch:
+    types: [ce-release]
   workflow_dispatch:
     inputs:
       tag:
@@ -51,7 +57,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Priority: workflow_dispatch input → repository_dispatch payload → latest published.
           TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${{ github.event.client_payload.tag }}"
+          fi
           if [ -z "$TAG" ]; then
             # Latest PUBLISHED release of the CE repo (drafts excluded by the
             # default token's visibility).
