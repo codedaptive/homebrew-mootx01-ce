@@ -47,27 +47,47 @@ class Mootx01 < Formula
   end
 
   def install
-    # Both binaries ship in every archive; moot-mgr is absent on Linux
-    # (the Rust headless build ships it separately on some platforms).
     bin.install "mootx01"
     bin.install "moot-mgr" if File.exist?("moot-mgr")
+
+    # SPM resource bundles must be co-located with the binaries — each
+    # Bundle.module target fatalErrors on first resource touch without its
+    # <Target>_<Target>.bundle sibling. The macOS archives carry three:
+    # LatticeLib (FDC data, lexicon, HMM model), EideticLib, and
+    # swift-crypto. Linux archives carry none (Rust port, no SPM bundles).
+    Dir.glob("*.bundle").each do |bundle|
+      (bin/bundle).mkpath
+      cp_r Dir["#{bundle}/*"], bin/bundle
+    end
+  end
+
+  def post_install
+    # Wire MCP clients and register launchd services. --yes skips interactive
+    # prompts. --target claude-code ensures the install flow reaches the
+    # launchd registration step even if no clients are auto-detected (without
+    # a target, an empty detection list causes an early exit before daemon
+    # registration). The MCP config write for an absent client is a no-op.
+    system bin/"mootx01", "install", "--yes", "--target", "claude-code"
   end
 
   def caveats
     <<~EOS
-      Wire mootx01 into your AI clients (Claude, Cursor, Codex, and more):
-        mootx01 install
+      mootx01 has been installed and wired into detected AI clients.
 
-      The installer detects which clients are present and wires each one
-      automatically. Run with --yes to skip prompts:
-        mootx01 install --yes
+      The resident daemon (MCP server) and management console are registered
+      as launchd services and start automatically at login.
 
-      Check your setup at any time:
+      Check your setup:
         mootx01 status
+
+      Dashboard (when running):
+        http://127.0.0.1:4200
+
+      To re-wire after adding a new AI client:
+        mootx01 install
 
       Upgrade to the latest release:
         brew upgrade mootx01
-        mootx01 install   # rewires clients to the new binary path
 
       More at: https://github.com/codedaptive/mootx01-ce
     EOS
