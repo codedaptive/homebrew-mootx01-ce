@@ -62,12 +62,12 @@ class Mootx01 < Formula
   end
 
   def post_install
-    # Wire MCP clients and register launchd services. --yes skips interactive
-    # prompts. --target claude-code ensures the install flow reaches the
-    # launchd registration step even if no clients are auto-detected (without
-    # a target, an empty detection list causes an early exit before daemon
-    # registration). The MCP config write for an absent client is a no-op.
-    system bin/"mootx01", "install", "--yes", "--target", "claude-code"
+    # Wire MCP clients and register launchd services. --no-place skips the
+    # binary copy to ~/.mootx01/bin (Homebrew already placed it in its prefix
+    # and linked it to PATH). --yes skips interactive prompts. --target
+    # claude-code ensures the flow reaches launchd registration even if no
+    # clients are auto-detected.
+    system bin/"mootx01", "install", "--yes", "--no-place", "--target", "claude-code"
   end
 
   def caveats
