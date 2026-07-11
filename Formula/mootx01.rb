@@ -74,11 +74,18 @@ class Mootx01 < Formula
       To finish setup, wire your AI clients and register the launchd services
       (this writes your user config, which Homebrew's sandbox cannot):
 
-        mootx01 install --yes --no-place --target claude-code
+        #{opt_bin}/mootx01 install --yes --no-place --target claude-code
+
+      The absolute path matters on machines that previously installed via
+      install.sh or the .pkg: those place symlinks at ~/.local/bin/mootx01
+      and ~/.local/bin/moot-mgr that shadow Homebrew's binaries on PATH and
+      reject newer flags. Remove them (then `rehash` in zsh):
+
+        rm -f ~/.local/bin/mootx01 ~/.local/bin/moot-mgr
 
       --no-place keeps the Homebrew-linked binary as the installed copy.
       With an existing MOOTx01 database, --yes reuses it; to start fresh
-      instead, run: mootx01 install --no-place --replace-db
+      instead, run: #{opt_bin}/mootx01 install --no-place --replace-db
 
       Afterwards the resident daemon (MCP server) and management console are
       registered as launchd services and start automatically at login.
