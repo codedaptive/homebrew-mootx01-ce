@@ -61,21 +61,27 @@ class Mootx01 < Formula
     end
   end
 
-  def post_install
-    # Wire MCP clients and register launchd services. --no-place skips the
-    # binary copy to ~/.mootx01/bin (Homebrew already placed it in its prefix
-    # and linked it to PATH). --yes skips interactive prompts. --target
-    # claude-code ensures the flow reaches launchd registration even if no
-    # clients are auto-detected.
-    system bin/"mootx01", "install", "--yes", "--no-place", "--target", "claude-code"
-  end
+  # No post_install: Homebrew runs post_install inside a sandbox that only
+  # permits writes under the Homebrew prefix/cache, so `mootx01 install` —
+  # which writes user config (~/Library/Application Support/com.mootx01.ce,
+  # ~/.claude.json MCP wiring, ~/Library/LaunchAgents) — fails there with
+  # "Operation not permitted" (and, on machines with an existing estate,
+  # used to block on the reuse/replace prompt). The wiring step therefore
+  # runs in the user's terminal — see caveats.
 
   def caveats
     <<~EOS
-      mootx01 has been installed and wired into detected AI clients.
+      To finish setup, wire your AI clients and register the launchd services
+      (this writes your user config, which Homebrew's sandbox cannot):
 
-      The resident daemon (MCP server) and management console are registered
-      as launchd services and start automatically at login.
+        mootx01 install --yes --no-place --target claude-code
+
+      --no-place keeps the Homebrew-linked binary as the installed copy.
+      With an existing MOOTx01 database, --yes reuses it; to start fresh
+      instead, run: mootx01 install --no-place --replace-db
+
+      Afterwards the resident daemon (MCP server) and management console are
+      registered as launchd services and start automatically at login.
 
       Check your setup:
         mootx01 status
