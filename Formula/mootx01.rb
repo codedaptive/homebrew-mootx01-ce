@@ -69,40 +69,23 @@ class Mootx01 < Formula
   # used to block on the reuse/replace prompt). The wiring step therefore
   # runs in the user's terminal — see caveats.
 
+  # Caveat design: ONE command, one check, one line per edge case, no
+  # rationale — the why (sandbox, shadowing, flag semantics) lives in code
+  # comments and `mootx01 install --help`, not in front of the user.
   def caveats
     <<~EOS
-      To finish setup, wire your AI clients and register the launchd services
-      (this writes your user config, which Homebrew's sandbox cannot):
+      Finish setup (wires your AI clients and starts the background services):
 
         #{opt_bin}/mootx01 install --yes --no-place --target claude-code
 
-      The absolute path matters on machines that previously installed via
-      install.sh or the .pkg: those place symlinks at ~/.local/bin/mootx01
-      and ~/.local/bin/moot-mgr that shadow Homebrew's binaries on PATH and
-      reject newer flags. Remove them (then `rehash` in zsh):
+      Verify:    mootx01 status
+      Dashboard: http://127.0.0.1:4200
 
+      If `mootx01 --version` shows an older version, an earlier non-Homebrew
+      install is shadowing this one — fix:
         rm -f ~/.local/bin/mootx01 ~/.local/bin/moot-mgr
 
-      --no-place keeps the Homebrew-linked binary as the installed copy.
-      With an existing MOOTx01 database, --yes reuses it; to start fresh
-      instead, run: #{opt_bin}/mootx01 install --no-place --replace-db
-
-      Afterwards the resident daemon (MCP server) and management console are
-      registered as launchd services and start automatically at login.
-
-      Check your setup:
-        mootx01 status
-
-      Dashboard (when running):
-        http://127.0.0.1:4200
-
-      To re-wire after adding a new AI client:
-        mootx01 install
-
-      Upgrade to the latest release:
-        brew upgrade mootx01
-
-      More at: https://github.com/codedaptive/mootx01-ce
+      More: https://github.com/codedaptive/mootx01-ce
     EOS
   end
 
