@@ -25,7 +25,7 @@ class Mootx01 < Formula
     on_arm do
       url "https://github.com/codedaptive/mootx01-ce/releases/download/v#{version}/mootx01-v#{version}-macos-arm64.tar.gz"
       # update-formula.sh writes the correct sha256 here after each release
-      sha256 "ff2ae1dd5410f856781a3b86bfea56c625e68b7f0f2a6240d311377744274705"
+      sha256 "d21dad94196a3d07cafa9f61f85a7e93f2f603d4931bfb8e33d334fe65b272b5"
     end
 
     on_intel do
@@ -37,12 +37,12 @@ class Mootx01 < Formula
   on_linux do
     on_intel do
       url "https://github.com/codedaptive/mootx01-ce/releases/download/v#{version}/mootx01-v#{version}-linux-x86_64.tar.gz"
-      sha256 "63ce0860aae0194c556cb3eae39a80d62d8fb4d750c02901f7a412f1329cfe14"
+      sha256 "97966e2e4696811f9f53ebdf2f46782c5c5a5c9b059ee91a70fb0a85c5ab127a"
     end
 
     on_arm do
       url "https://github.com/codedaptive/mootx01-ce/releases/download/v#{version}/mootx01-v#{version}-linux-arm64.tar.gz"
-      sha256 "7566b2b0f70d06fd575f9acf798fd6c9fcf8c6aa8c2970ca0ce0d8cee6bc402b"
+      sha256 "f6430edf4316e541f3c40bda7810f6c7c132a44d5d19efbbc9403a6140d64ecf"
     end
   end
 
