@@ -16,7 +16,7 @@ class Mootx01 < Formula
   desc "On-device AI memory substrate: file, recall, and reason across sessions"
   homepage "https://github.com/codedaptive/mootx01-ce"
   license "FSL-1.1-ALv2"
-  version "1.1.1"
+  version "1.1.2"
 
   # ── macOS arm64 (Apple Silicon) ──────────────────────────────────────────
   # Apple silicon only from 1.1.0 on: the release is built against macOS 27,
@@ -25,7 +25,7 @@ class Mootx01 < Formula
     on_arm do
       url "https://github.com/codedaptive/mootx01-ce/releases/download/v#{version}/mootx01-v#{version}-macos-arm64.tar.gz"
       # update-formula.sh writes the correct sha256 here after each release
-      sha256 "796ee78f7eafd642c17eabe71f05af15906a2144e40a7ea0612afe82df486da4"
+      sha256 "cda3e6d223bd4baaab13385739ebf04eb9a24b96874f11d0b5006cb54973cf10"
     end
 
     on_intel do
@@ -37,12 +37,12 @@ class Mootx01 < Formula
   on_linux do
     on_intel do
       url "https://github.com/codedaptive/mootx01-ce/releases/download/v#{version}/mootx01-v#{version}-linux-x86_64.tar.gz"
-      sha256 "7e438766bc8a85d5dd9ff91a99c94a3ae9d023933194dd8a32906795b198fb07"
+      sha256 "cd9775046af2012d584afbe8ee1bead8bb389e80145598b6f9fbaa0eac979dcf"
     end
 
     on_arm do
       url "https://github.com/codedaptive/mootx01-ce/releases/download/v#{version}/mootx01-v#{version}-linux-arm64.tar.gz"
-      sha256 "082518b693a1ec0c0e34b1ffe9221cf4170e2e164dd1fd3382a98e3a64f47ec5"
+      sha256 "ee8d852e4ce68d2a7bd06b9e4c037073f35f7ded08f5506a54091885d653084c"
     end
   end
 
