@@ -65,34 +65,32 @@ hash_asset() {
   fi
 }
 
-# Four ordered variables (no associative arrays, for bash 3.2). The order
+# Three ordered variables (no associative arrays, for bash 3.2). The order
 # here MUST match the order the sha256 lines appear in the formula: macOS
-# arm, macOS intel, Linux intel, Linux arm (see the Python step below).
+# arm, Linux intel, Linux arm (see the Python step below). There is no macOS
+# Intel asset — the release is built against macOS 27, Apple silicon only.
 SHA_MACOS_ARM64="$(hash_asset "mootx01-${VERSION}-macos-arm64.tar.gz")"
 echo "  ✓ macos-arm64:  $SHA_MACOS_ARM64"
-SHA_MACOS_X86_64="$(hash_asset "mootx01-${VERSION}-macos-x86_64.tar.gz")"
-echo "  ✓ macos-x86_64: $SHA_MACOS_X86_64"
 SHA_LINUX_X86_64="$(hash_asset "mootx01-${VERSION}-linux-x86_64.tar.gz")"
 echo "  ✓ linux-x86_64: $SHA_LINUX_X86_64"
 SHA_LINUX_ARM64="$(hash_asset "mootx01-${VERSION}-linux-arm64.tar.gz")"
 echo "  ✓ linux-arm64:  $SHA_LINUX_ARM64"
 
 # ── 3. Write the updated formula ──────────────────────────────────────────
-# All in-file edits happen here in Python: the version field plus the four
+# All in-file edits happen here in Python: the version field plus the three
 # sha256 lines, replaced in document order. Python is already required and
 # is byte-identical across macOS and Linux, so there is no BSD-vs-GNU sed
 # hazard.
 python3 - "$FORMULA_PATH" \
   "$VERSION_BARE" \
   "$SHA_MACOS_ARM64" \
-  "$SHA_MACOS_X86_64" \
   "$SHA_LINUX_X86_64" \
   "$SHA_LINUX_ARM64" \
   <<'PYEOF'
 import sys, re
 
-path, version, arm_mac, intel_mac, intel_linux, arm_linux = sys.argv[1:]
-targets = [arm_mac, intel_mac, intel_linux, arm_linux]
+path, version, arm_mac, intel_linux, arm_linux = sys.argv[1:]
+targets = [arm_mac, intel_linux, arm_linux]
 
 with open(path) as f:
     text = f.read()
@@ -103,8 +101,8 @@ text, n = re.subn(r'^  version ".*"', '  version "' + version + '"',
 if n != 1:
     sys.exit("expected exactly one version line, replaced %d" % n)
 
-# The four sha256 lines, in document order (macOS arm, macOS intel,
-# Linux intel, Linux arm).
+# The three sha256 lines, in document order (macOS arm, Linux intel,
+# Linux arm).
 idx = 0
 def replacer(m):
     global idx
@@ -113,8 +111,8 @@ def replacer(m):
     return out
 
 text, n = re.subn(r'      sha256 "[0-9a-f]+"', replacer, text)
-if n != 4:
-    sys.exit("expected exactly four sha256 lines, replaced %d" % n)
+if n != 3:
+    sys.exit("expected exactly three sha256 lines, replaced %d" % n)
 
 with open(path, 'w') as f:
     f.write(text)

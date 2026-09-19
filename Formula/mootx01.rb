@@ -19,6 +19,8 @@ class Mootx01 < Formula
   version "1.1.0"
 
   # ── macOS arm64 (Apple Silicon) ──────────────────────────────────────────
+  # Apple silicon only from 1.1.0 on: the release is built against macOS 27,
+  # which Apple ships for arm64 alone, so there is no Intel asset to point at.
   on_macos do
     on_arm do
       url "https://github.com/codedaptive/mootx01-ce/releases/download/v#{version}/mootx01-v#{version}-macos-arm64.tar.gz"
@@ -26,10 +28,8 @@ class Mootx01 < Formula
       sha256 "ff2ae1dd5410f856781a3b86bfea56c625e68b7f0f2a6240d311377744274705"
     end
 
-    # ── macOS x86_64 (Intel) ─────────────────────────────────────────────
     on_intel do
-      url "https://github.com/codedaptive/mootx01-ce/releases/download/v#{version}/mootx01-v#{version}-macos-x86_64.tar.gz"
-      sha256 "ce9564c25736dbddef0d6d3b8a8f20523e01611ceb9d0edc858e970bac0591f1"
+      odie "mootx01 requires macOS 27 on Apple silicon; Intel Macs are not supported from 1.1.0 onward."
     end
   end
 
